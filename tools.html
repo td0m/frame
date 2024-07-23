@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<meta name="theme-color" content="">
+		<link rel="shortcut icon" href="/icon.svg">
+		<link rel="stylesheet" href="">
+		<title>Tools</title>
+	</head>
+	<button id=unreg>unregister</button>
+	<button id="clear">clear</button>
+	<body>
+		<script>
+			unreg.onclick = () => {
+				navigator.serviceWorker.getRegistrations().then(registrations => {
+					for (const registration of registrations) {
+						registration.unregister();
+					} 
+				});
+				caches.delete("cached-responses")
+			}
+			clear.onclick = () => {
+				localStorage.removeItem("cmds")
+			}
+		</script>
+	</body>
+</html>

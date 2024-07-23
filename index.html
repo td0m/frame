@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<meta name="theme-color" content="">
+		<link rel="shortcut icon" href="/res/icon512_rounded.png">
+		<link rel="stylesheet" href="/res/css/util.css">
+		<link rel="manifest" href="/res/manifest.json" crossorigin="use-credentials">
+		<script src="/res/js/service-worker-register.js"></script>
+		<title>Frame</title>
+		<style>
+			@font-face {
+				font-family: 'IBM Plex Mono';
+				font-weight: 400;
+				font-style: normal;
+				font-display: swap;
+				unicode-range: U+000-5FF;
+				src:    local('IBM Plex Mono'),
+					url('/res/IBMPlexMono.woff2') format('woff2');
+			}
+			html, body {
+				font-family: "IBM Plex Mono", monospace;
+			}
+			* { box-sizing: border-box; }
+			textarea, input, select, button { font: inherit; }
+
+			.overlapping {
+				display: grid;
+				> * {
+					grid-area: 1 / 1 / 2 / 2;
+				}
+			}
+
+
+			body {
+				padding: 2rem;
+				margin: 0 auto;
+				max-width: 600px;
+			}
+
+			#path {
+				a { color: inherit; }
+				font-size: 1.5rem;
+				font-weight: 700;
+			}
+
+			.flex { display: flex; align-items: center; justify-content: center; }
+
+			#actions {
+				margin-left: auto;
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+			}
+
+			#newInput {
+			}
+
+			#diagram {
+				padding: 2rem 0;
+			}
+
+			#comments {
+				padding: 0rem 0;
+			}
+
+			.comment {
+				margin-top: 0.25rem;
+				.actions {
+					margin-left: auto;
+					width: fit-content;
+					font-size: 0.75rem;
+					padding: 0.25rem;
+				}
+				.content {
+					padding: 0.5rem;
+					border-radius: 8px;
+					background: #eee;
+					white-space: pre-wrap;
+				}
+			}
+
+			.mermaid {
+				margin: 0 auto;
+				display: flex;
+				justify-content: center;
+
+				* {
+					font-family: "IBM Plex Mono";
+				}
+				a {
+					text-decoration: none;
+					color: inherit;
+					display: inline-flex;
+					align-items: center;
+					gap: 0.5rem;
+				}
+				.count {
+					color: #000;
+					font-size: 0.75rem;
+					opacity: 0.5;
+					&::before {
+						content: "(";
+					}
+					&::after {
+						content: ")";
+					}
+				}
+
+				.primary {
+					.count {
+						color: #fff !important;
+					}
+					rect {
+						fill: black !important;
+						border-radius: 8px;
+						stroke: none !important;
+					}
+					.nodeLabel {
+						color: white !important;
+					}
+				}
+				.child {
+					rect {
+						fill: #f4f4f4 !important;
+						stroke: none !important;
+					}
+					.nodeLabel {
+						color: black !important;
+					}
+				}
+				.connector {
+					rect {
+						fill: #DAEAFC !important;
+						stroke: none !important;
+					}
+					.nodeLabel {
+						color: black !important;
+					}
+				}
+				.last {
+					rect {
+						fill: #D2F0FE !important;
+						stroke: none !important;
+					}
+					.nodeLabel {
+						color: black !important;
+					}
+				}
+				.has-children {
+					rect {
+						outline: solid 2px #000;
+						filter: drop-shadow(1px 1px 3px rgb(0 0 0 / 0.6));
+					}
+				}
+				.icon {
+					width: 18px;
+					path {
+						fill: transparent !important;
+						stroke: currentColor !important;
+					}
+				}
+				.nodeLabel {
+					vertical-align: middle;
+					display: inline-flex;
+					gap: 0.5rem;
+				}
+			}
+
+			#newCommentArea {
+				width: 100%;
+				margin-top: 1rem;
+			}
+
+			#input {
+				width: 100%;
+				display: block;
+				max-width: 400px;
+				margin-inline: auto;
+			}
+
+			#createFrameBtn {
+			}
+
+			.z-overlay { z-index: 99; }
+
+			.dialog {
+				padding: 2rem;
+				border-radius: 0.5rem;
+				background: white;
+				max-width: 400px;
+				width: 100%;
+				flex-shrink: 1;
+				box-shadow: 0px 0px 4px -2px rgba(66, 68, 90, 1);
+				> .title {
+					font-size: 1.4rem;
+					font-weight: 600;
+				}
+				> .actions {
+					display: flex;
+					justify-content: flex-end;
+					gap: 1rem;
+					margin-top: 2rem;
+				}
+				& > * + * {
+					margin-top: 1rem;
+				}
+			}
+
+
+			.overlay {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100dvh;
+				background: rgba(0,0,0,0.3);
+				padding: 1rem;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				visibility: hidden;
+
+				&[data-active=true] {
+					visibility: visible;
+				}
+			}
+			.sticky {
+				position: sticky;
+				top: 0;
+				width: 100%;
+				padding: 0.75rem;
+			}
+			.nav {
+				background: white;
+				gap: 2rem;
+				padding: 0.5rem 1rem;
+				border-radius: 8px;
+				border: solid 2px #ddd;
+				box-shadow: 0 0px 6px -1px rgb(0 0 0 / 0.1), 0 0px 4px -2px rgb(0 0 0 / 0.1);
+			}
+
+			.copy {
+				pointer-events: none;
+				white-space: pre;
+				opacity: 0;
+			}
+			.input {
+				resize: none;
+			}
+		</style>
+	</head>
+	<body class="margin-between">
+		<div id=dialog class="overlay">
+			<div class="dialog">
+				<div class="title">Confirm delete</div>
+				<p>
+					Sup
+				</p>
+				<div class="actions">
+					<button id=no data-variant=ghost class=btn>No</button>
+					<button id=yes class=btn data-variant=destructive>Yes</button>
+				</div>
+			</div>
+		</div>
+		<div class="sticky">
+			<div class="flex nav">
+				<a style="display: none" href="/tools">tools</a>
+				<a style="display: none" href="?frame=root">/</a>
+				<button class="btn ml-auto" data-variant=ghost data-size="icon" id="deleteFrameBtn">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-6">
+						<path fill-rule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clip-rule="evenodd" />
+					</svg>
+				</button>
+			</div>
+		</div>
+		<div id=diagram>
+			<pre id=mermaid class="mermaid">graph TD</pre>
+		</div>
+		<input type="text" placeholder="new frame" class="input" data-variant="raised" id=input />
+		<div class="flex">
+			<button class="btn" style="opacity: 0; margin-top: 0.75rem" id="createFrameBtn">create</button>
+		</div>
+		<h2 style="margin-top: 4rem">Comments</h2>
+		<div id=comments></div>
+		<div class="overlapping" id=newCommentArea>
+			<textarea class="input" data-variant="outline"
+				oninput="this.parentNode.querySelector('.copy').textContent = this.value + ' '"
+				placeholder="type to add a comment..." id="newCommentText"></textarea>
+			<div class="copy input" data-variant="outline"></div>
+		</div>
+		<button id="addCommentBtn" class="btn" style="margin: 0 auto;">add</button>
+		<script type=module>
+		</script>
+		<script type="module">
+			import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+			import { atom, map, deepMap, computed, batched } from '/res/js/nanostores.bundle.mjs';
+			import CommandStore from '/res/js/command-store.mjs'
+
+			function persist(key, $state) {
+				const encode = JSON.stringify
+				const decode = JSON.parse
+				const str = localStorage.getItem(key)
+				if (str !== null) {
+					const value = decode(str)
+					$state.set(value)
+				}
+				$state.listen(debounce(value => {
+					localStorage.setItem(key, encode(value))
+				}, 5))
+				return $state
+			}
+
+			const $searchParams = map({})
+			function updateRoute() {
+				for (let [key, value] of new URLSearchParams(location.search)) {
+					$searchParams.setKey(key, value)
+				}
+			}
+			updateRoute()
+			$searchParams.listen(searchParams => {
+				const url = new URL(window.location)
+				url.search = (new URLSearchParams(searchParams)).toString()
+				history.pushState({}, '', `${url}`);
+			})
+			window.addEventListener("popstate", () => setTimeout(updateRoute))
+			window.addEventListener("pushstate", () => setTimeout(updateRoute))
+
+			export const _id = (prefix) => {
+				return `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`
+			}
+
+			function sanitize(name) {
+				return name.replace(/[^0-9a-z_\- ]/gi, '')
+			}
+
+			let $comments = deepMap({
+				root: [],
+			})
+			let $frames = deepMap({
+				root: {
+					id: "root",
+					name: "root"
+				},
+				foo: {
+					id: "foo",
+					name: "foo",
+				}
+			})
+			let $children = map({
+				root: ["foo"],
+			})
+
+			function listParents(childrenMap, id) {
+				let all = []
+				for (let key in childrenMap) {
+					const children = childrenMap[key]
+					if (children.includes(id)) {
+						all.push(key, ...listParents(childrenMap, key, false))
+					}
+				}
+				return all
+			}
+
+			const reads = {
+				getNodeById: (id) => {
+					const frames = $frames.get()
+					return frames[id]
+				},
+				listChildren: (nodeId) => {
+					return $children.get()[nodeId] ?? []
+				},
+				listComments: (frameId) => {
+					return $comments.get()[frameId] ?? []
+				},
+				listParents: (nodeId) => {
+					if (nodeId === "root") return []
+					const children = $children.get()
+					return listParents(children, nodeId, true)
+				},
+				getLastVisitedChild: nodeId => {
+					const children = reads.listChildren(nodeId)
+					let last
+					for (let childId of children) {
+						const child = reads.getNodeById(childId)
+						if (!last || !last.lastVisited || child.lastVisited?.localeCompare(last.lastVisited) > 0) {
+							last = child
+						}
+					}
+					return last
+				},
+				getLastVisitedChildRec: nodeId => {
+					let last = reads.getLastVisitedChild(nodeId)
+					if (!last) return
+					while (true) {
+						let candidate = reads.getLastVisitedChild(last.id)
+						if (!candidate) return last
+						last = candidate
+					}
+				}
+			}
+
+			const $frameId = computed($searchParams, searchParams => {
+				const v = searchParams?.frame
+				return v ?? "root"
+			})
+			const $newFrame = atom("")
+			$frameId.listen(frameId => {
+				$searchParams.setKey("frame", frameId)
+			})
+			const $newCommentText = atom("")
+			const $deleting = atom(false)
+
+			function validate(cmd) {
+				if (!cmd.id) cmd.id = _id("cmd")
+				if (!cmd.payload) cmd.payload = {}
+				if (!cmd.createdAt) cmd.createdAt = (new Date()).toISOString()
+				switch(cmd.type) {
+					case "PUSH_FRAME":
+						if (!cmd.payload.parentId) throw "parentId missing"
+						if (!cmd.payload.id) throw "id missing"
+						if (!cmd.payload.name) throw "name missing"
+						cmd.payload.id = sanitize(cmd.payload.id)
+						break
+					case "POP_FRAME":
+						if (!cmd.payload.id) throw "id missing"
+						break
+					case "VISIT_FRAME":
+						if (!cmd.payload.id) throw "id missing"
+						if (!cmd.payload.visitedAt) throw "visitedAt missing"
+						break
+					case "ADD_COMMENT":
+						if (!cmd.payload.frameId) throw "frameId missing"
+						if (!cmd.payload.id) throw "id missing"
+						if (!cmd.payload.text) throw "text missing"
+						break
+					default:
+						throw `unsupported command: '${cmd.type}'`
+				}
+			}
+
+			const commandStore = CommandStore(validate)
+
+			const cmd2state = {
+				POP_FRAME: cmd => {
+					const childrenMap = $children.get()
+					for (let id in childrenMap) {
+						const children = childrenMap[id]
+						if (children.includes(cmd.payload.id)) {
+							$children.setKey(id, children.filter(c => c !== cmd.payload.id))
+						}
+					}
+				},
+				ADD_COMMENT: cmd => {
+					const { id, frameId, text } = cmd.payload
+					const comment = {
+						id,
+						text: text,
+						date: cmd.createdAt,
+					}
+					$comments.setKey(`${frameId}.${$comments.get()[frameId]?.length ?? 0}`, comment)
+				},
+				PUSH_FRAME: cmd => {
+					$frames.setKey(cmd.payload.id, {
+						id: cmd.payload.id,
+						name: cmd.payload.name,
+					})
+					const newChildren = $children.get()[cmd.payload.parentId] ?? []
+					newChildren.push(cmd.payload.id)
+					$children.setKey(cmd.payload.parentId, newChildren)
+				},
+				VISIT_FRAME: cmd => {
+					const { id, visitedAt } = cmd.payload
+					for (let pid of [id, ...reads.listParents(id)]) {
+						$frames.setKey(`${pid}.lastVisited`, visitedAt)
+					}
+				}
+			}
+			commandStore.listen(cmd => cmd2state[cmd.type](cmd))
+			
+			;(() => {
+				const key = "cmds.v2"
+				const str = localStorage.getItem(key)
+				let value = []
+				if (str !== null) {
+					value = JSON.parse(str)
+				}
+				for (let cmd of value) {
+					commandStore.push(cmd)
+				}
+				commandStore.listen(cmd => {
+					value.push(cmd)
+					localStorage.setItem(key, JSON.stringify(value))
+				})
+			})()
+
+			const commands = {
+				pushFrame: (parentId, name) => {
+					return commandStore.push({
+						type: "PUSH_FRAME",
+						payload: {
+							parentId,
+							id: _id("f"),
+							name,
+						}
+					})
+				},
+				popFrame: (id) => {
+					commandStore.push({
+						type: "POP_FRAME",
+						payload: {
+							id,
+						}
+					})
+				},
+				addComment: (frameId, text) => {
+					commandStore.push({
+						type: "ADD_COMMENT",
+						payload: {
+							frameId: frameId,
+							id: _id("c"),
+							text,
+						}
+					})
+				},
+				visitFrame: (id) => {
+					console.log("VISIT", id)
+					commandStore.push({
+						type: "VISIT_FRAME",
+						payload: {
+							id,
+							visitedAt: (new Date()).toISOString()
+						}
+					})
+				}
+			}
+
+
+			let timers = {}
+			export function debounce(func, timeout = 300, f_get_id=null){
+				let timer
+				return (...args) => {
+					let key
+					if (f_get_id) { key = f_get_id(args[0]); }
+					clearTimeout(key ? timers[key] : timer);
+					timer = setTimeout(() => { func.apply(this, args); }, timeout);
+					if (key) timers[key] = timer
+				};
+			}
+
+
+			const ui = {
+				path: document.getElementById("path"),
+				dialog: document.getElementById("dialog"),
+				no: document.getElementById("no"),
+				yes: document.getElementById("yes"),
+				input: document.getElementById("input"),
+				comments: document.getElementById("comments"),
+				mermaid: document.getElementById("mermaid"),
+				createFrameBtn: document.getElementById("createFrameBtn"),
+				deleteFrameBtn: document.getElementById("deleteFrameBtn"),
+				newCommentText: document.getElementById("newCommentText"),
+				addCommentBtn: document.getElementById("addCommentBtn"),
+			}
+
+			$newFrame.subscribe(newFrame => {
+				ui.input.value = newFrame
+				ui.createFrameBtn.style.opacity = newFrame ? "1" : "0"
+				ui.createFrameBtn.disabled = !newFrame ? "true" : ""
+			})
+
+			ui.input.oninput = e => $newFrame.set(e.target.value)
+
+			function create(stay=false) {
+				const cmd = commands.pushFrame($frameId.get(), $newFrame.get())
+				$newFrame.set("")
+				if (!stay) $frameId.set(cmd.payload.id)
+			}
+
+			input.addEventListener("keydown", e => {
+				if (e.key === "Enter") {
+					const stay = e.shiftKey
+					create(stay)
+				}
+			})
+
+			ui.createFrameBtn.onclick = e => {
+				create()
+			}
+
+			ui.deleteFrameBtn.addEventListener("click", () => {
+				$deleting.set(true)
+				const node = reads.getNodeById($frameId.get())
+				ui.dialog.querySelector("p").textContent = `
+					You sure you want to delete: ${node.name}?
+				`
+			})
+			ui.no.addEventListener("click", () => {
+				$deleting.set(false)
+			})
+			ui.yes.addEventListener("click", () => {
+				const parents = reads.listParents($frameId.get())
+				commands.popFrame($frameId.get())
+				$frameId.set(parents[0])
+				$deleting.set(false)
+			})
+			$deleting.subscribe(deleting => {
+				ui.dialog.dataset.active = deleting
+			})
+
+			window.history.pushState = new Proxy(window.history.pushState, {
+				apply: (target, thisArg, argArray) => {
+					window.dispatchEvent(new CustomEvent("pushstate", {}))
+					return target.apply(thisArg, argArray);
+				},
+			});
+
+			function handleAnchorClick(e) {
+				if (e.target.tagName !== "A") return
+				history.pushState({}, "", e.target.href)
+				return e.preventDefault()
+			}
+			document.addEventListener("click", handleAnchorClick)
+
+			$newCommentText.subscribe(value => {
+				ui.newCommentText.value = value
+				ui.addCommentBtn.disabled = value.length === 0
+				ui.addCommentBtn.style.opacity = value.length === 0 ? "0" : "100%"
+			})
+			ui.newCommentText.addEventListener("input", e => {
+				$newCommentText.set(e.target.value)
+			})
+
+			ui.addCommentBtn.addEventListener("click", e => {
+				commands.addComment($frameId.get(), $newCommentText.get())
+				$newCommentText.set("")
+			})
+
+			function countLeafs(node) {
+				let count = 0
+				for (let child of Object.values(node?.children ?? {})) {
+					const childLeafCount = countLeafs(child)
+					if (childLeafCount > 0) {
+						count += childLeafCount
+					} else {
+						count++
+					}
+				}
+				return count
+			}
+
+			window.addEventListener("error", (e, url, line) => {
+				// alert(`${JSON.stringify(e.message)}`)
+				return true
+			})
+
+			$frameId.subscribe(id => {
+				deleteFrameBtn.disabled = id === "root"
+			})
+
+			$frameId.subscribe(id => {
+				// update all parent dates too
+				const node = reads.getNodeById(id)
+				if (node) commands.visitFrame(node.id)
+			})
+
+			function render({frames, children, frameId}) {
+				// document.title = toURL(path)
+				let node = reads.getNodeById(frameId)
+				if (!node) {
+					$frameId.set("root")
+					return
+				}
+				let childrenIds = reads.listChildren(node.id)
+				let parentIds = reads.listParents(node.id)
+
+				const last = reads.getLastVisitedChild(node.id)
+				const lastRec = last && reads.getLastVisitedChildRec(last.id)
+
+				const commentIcon = ` <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"> <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /> </svg> `
+
+				function icon(node) {
+					if (reads.listComments(node.id).length) return commentIcon;
+					return ""
+				}
+				const nodesToRender = [...childrenIds, ...parentIds]
+				if (!!lastRec) nodesToRender.push(lastRec.id)
+
+				const renderNode = node => {
+					const count = reads.listChildren(node.id).length
+					return `${node.id}[<a href="?frame=${node.id}">${icon(node)}${node.name}${count > 0 ? `<span class=count>${count}</span>` : ""}</a>]`
+				}
+
+				let content = `
+				graph ${frameId !== "root2" ? "TD" : "LR"}
+					${renderNode(node)}
+					${nodesToRender.map(id => renderNode(reads.getNodeById(id))).join("\n")}
+					${childrenIds.map(id => `class ${id} child`).join("\n")}
+					${parentIds.map(id => `class ${id} child`).join("\n")}
+					${parentIds.slice(1).map((_,i) => `${parentIds[i+1]} --> ${parentIds[i]}`).join("\n")}
+					${parentIds[0] ? `${parentIds[0]} --> ${node.id}` : ""}
+					${childrenIds.map(id => `${node.id} --> ${id}`).join("\n")}
+					${lastRec ? `${last.id} -.- ${lastRec.id}` : ""}
+					class ${node.id} primary
+					${last ? `class ${last.id} last` : ""}
+					${lastRec ? `class ${lastRec.id} last` : ""}
+				`
+
+				ui.mermaid.textContent = content
+				ui.mermaid.removeAttribute("data-processed")
+				mermaid.init(undefined, ui.mermaid);
+
+			}
+			batched([$frames, $children, $frameId, $comments], (frames, children, frameId, comments) => ({frames,children, frameId})).subscribe(render)
+
+			function renderComments({frameId, comments: allComments}) {
+				const comments = reads.listComments(frameId)
+				ui.comments.innerHTML = ""
+				for (let comment of comments) {
+					ui.comments.innerHTML += `<div class="comment">
+						<div class="actions">
+							<span>${comment.date?.split("T")[0] ?? ""}</span>
+						</div>
+						<div class="content">${comment.text}</div>
+					</div>`
+				}
+			}
+			batched([$frameId, $comments], (frameId, comments) => ({frameId, comments})).subscribe(renderComments)
+		</script>
+	</body>
+</html>
