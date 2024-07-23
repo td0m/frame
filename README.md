@@ -2,7 +2,8 @@
 > Trees 🌳 that make context switching & planning feel seemless
 
 > [!NOTE]
-> This project is [a home-cooked meal](https://tdom.dev/home-cooked) and is always a work in progress. 
+> This project is [a home-cooked meal](https://tdom.dev/home-cooked).
+> A WIP thing for me and only me, which is why the code is likely a mess.
 
 ## What is context switching
 
