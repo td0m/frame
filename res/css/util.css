@@ -1,0 +1,106 @@
+.margin-between {
+	& > * + * { 
+		margin-bottom: 1rem;
+	}
+}
+.ml-auto { margin-left: auto; }
+
+.input {
+	/* reset */
+	border: none;
+	background: transparent;
+	outline: none;
+
+	/* base style */
+	border-radius: 5px;
+	padding: 0.5rem 0.75rem;
+	margin: 0;
+
+	&[data-variant=outline] {
+		border: solid 1px #ddd;
+	}
+	&[data-variant=raised] {
+		border: solid 1px #ddd;
+		box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+	}
+}
+
+.btn {
+  /* reset */
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  width: fit-content; /* "a" tag needs this */
+
+  /* base style */
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline-offset: 2px;
+  outline: solid 2px transparent;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, outline-color 0.2s ease-out;
+  gap: 0.5rem;
+
+  --bg: transparent;
+  --color: black;
+  --bg-hover: rgba(0, 0, 0, 0.07);
+  background-color: var(--bg);
+  color: var(--color);
+  &:hover {
+    background-color: var(--bg-hover);
+  }
+
+  /* sizes */
+  &:not([data-size]), &[data-size=""], &[data-size=text] {
+    padding: 0.5em 1em;
+  }
+  &[data-size=icon] {
+    --size: 2rem;
+    width: var(--size);
+    height: var(--size);
+    border-radius: 0.25rem;
+  }
+
+  /* variants */
+  &:not([data-variant]), &[data-variant=primary] {
+    --bg: black;
+    --color: white;
+    /* --bg-hover: hsl(from var(--bg) h s calc(l + 20)); */
+    --bg-hover: #222;
+  }
+  &[data-variant=secondary] {
+    --bg: rgba(0,0,0,0.06);
+    --color: black;
+    --bg-hover: rgba(0,0,0,0.12);
+  }
+  &[data-variant=destructive] {
+    --bg: #ef4444;
+    --color: white;
+    /* --bg-hover: hsl(from var(--bg) h s calc(l + 10)); */
+    --bg-hover: #DC3939;
+  }
+  &[data-variant=outline] {
+    border: solid 1px #ccc;
+    --bg-hover: rgba(0,0,0,0.06);
+  }
+
+  &:focus {
+    outline-color: #000;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
+  &[data-loading] {
+    cursor: progress;
+    .icon {
+      display: none;
+    }
+  }
+
+  /* children */
+}
