@@ -11,6 +11,8 @@
 	</head>
 	<button id=unreg>unregister</button>
 	<button id="clear">clear</button>
+	<input type="checkbox" id="nosw">
+	<label for="nosw">Disable Service Worker</label>
 	<body>
 		<script>
 			unreg.onclick = () => {
@@ -23,6 +25,10 @@
 			}
 			clear.onclick = () => {
 				localStorage.removeItem("cmds")
+			}
+			nosw.checked = !!localStorage.getItem("nosw")
+			nosw.onchange = e => {
+				localStorage.setItem("nosw", nosw.checked ? "true" : "")
 			}
 		</script>
 	</body>

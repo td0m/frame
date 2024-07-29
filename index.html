@@ -79,6 +79,7 @@
 					border-radius: 8px;
 					background: #eee;
 					white-space: pre-wrap;
+					word-break: break-all;
 				}
 			}
 
@@ -244,11 +245,13 @@
 
 			.copy {
 				pointer-events: none;
-				white-space: pre;
+				white-space: pre-wrap;
 				opacity: 0;
+				word-break: break-all;
 			}
 			.input {
 				resize: none;
+				word-break: break-all;
 			}
 		</style>
 	</head>
@@ -283,17 +286,21 @@
 		<div class="flex">
 			<button class="btn" style="opacity: 0; margin-top: 0.75rem" id="createFrameBtn">create</button>
 		</div>
-		<h2 style="margin-top: 4rem">Comments</h2>
-		<div id=comments></div>
-		<div class="overlapping" id=newCommentArea>
-			<textarea class="input" data-variant="outline"
-				oninput="this.parentNode.querySelector('.copy').textContent = this.value + ' '"
-				placeholder="type to add a comment..." id="newCommentText"></textarea>
-			<div class="copy input" data-variant="outline"></div>
+		<div>
+			<ui-relative-date id="created"></ui-relative-date>
+		</div>
+		<div id=commentSection>
+			<h2 style="margin-top: 4rem">Comments</h2>
+			<div id=comments></div>
+			<div class="overlapping" id=newCommentArea>
+				<textarea class="input" data-variant="outline"
+					oninput="this.parentNode.querySelector('.copy').textContent = this.value + ' '"
+					placeholder="type to add a comment..." id="newCommentText"></textarea>
+				<div class="copy input" data-variant="outline"></div>
+			</div>
 		</div>
 		<button id="addCommentBtn" class="btn" style="margin: 0 auto;">add</button>
-		<script type=module>
-		</script>
+		<script defer type=module src="/res/js/ui-relative-date.mjs"></script>
 		<script type="module">
 			import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
 			import { atom, map, deepMap, computed, batched } from '/res/js/nanostores.bundle.mjs';
@@ -314,6 +321,7 @@
 			}
 
 			const $searchParams = map({})
+			// run this in a setTimeout()
 			function updateRoute() {
 				for (let [key, value] of new URLSearchParams(location.search)) {
 					$searchParams.setKey(key, value)
@@ -333,7 +341,7 @@
 			}
 
 			function sanitize(name) {
-				return name.replace(/[^0-9a-z_\- ]/gi, '')
+				return name.replace(/[^0-9a-z_\-\?\/: ]/gi, '')
 			}
 
 			let $comments = deepMap({
@@ -466,6 +474,7 @@
 					$frames.setKey(cmd.payload.id, {
 						id: cmd.payload.id,
 						name: cmd.payload.name,
+						createdAt: cmd.createdAt,
 					})
 					const newChildren = $children.get()[cmd.payload.parentId] ?? []
 					newChildren.push(cmd.payload.id)
@@ -558,11 +567,13 @@
 				yes: document.getElementById("yes"),
 				input: document.getElementById("input"),
 				comments: document.getElementById("comments"),
+				commentSection: document.getElementById("commentSection"),
 				mermaid: document.getElementById("mermaid"),
 				createFrameBtn: document.getElementById("createFrameBtn"),
 				deleteFrameBtn: document.getElementById("deleteFrameBtn"),
 				newCommentText: document.getElementById("newCommentText"),
 				addCommentBtn: document.getElementById("addCommentBtn"),
+				created: document.getElementById("created"),
 			}
 
 			$newFrame.subscribe(newFrame => {
@@ -571,7 +582,14 @@
 				ui.createFrameBtn.disabled = !newFrame ? "true" : ""
 			})
 
-			ui.input.oninput = e => $newFrame.set(e.target.value)
+			ui.input.oninput = e => {
+				const original = e.target.value
+				const sanitized = sanitize(original)
+				if (sanitized.length !== original.length) {
+					ui.input.value = sanitized
+				}
+				$newFrame.set(sanitized)
+			}
 
 			function create(stay=false) {
 				const cmd = commands.pushFrame($frameId.get(), $newFrame.get())
@@ -694,7 +712,7 @@
 				}
 
 				let content = `
-				graph ${frameId !== "root2" ? "TD" : "LR"}
+				graph ${frameId !== "root" ? "TD" : "LR"}
 					${renderNode(node)}
 					${nodesToRender.map(id => renderNode(reads.getNodeById(id))).join("\n")}
 					${childrenIds.map(id => `class ${id} child`).join("\n")}
@@ -712,16 +730,18 @@
 				ui.mermaid.removeAttribute("data-processed")
 				mermaid.init(undefined, ui.mermaid);
 
+				ui.created.value = node.createdAt
 			}
 			batched([$frames, $children, $frameId, $comments], (frames, children, frameId, comments) => ({frames,children, frameId})).subscribe(render)
 
 			function renderComments({frameId, comments: allComments}) {
+				ui.commentSection.style.display = frameId !== "root" ? "block" : "none"
 				const comments = reads.listComments(frameId)
 				ui.comments.innerHTML = ""
 				for (let comment of comments) {
 					ui.comments.innerHTML += `<div class="comment">
 						<div class="actions">
-							<span>${comment.date?.split("T")[0] ?? ""}</span>
+							<ui-relative-date value="${comment.date}"></ui-relative-date>
 						</div>
 						<div class="content">${comment.text}</div>
 					</div>`
